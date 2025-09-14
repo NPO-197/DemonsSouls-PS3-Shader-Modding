@@ -1,0 +1,89 @@
+#define _KernelSize 3
+#define _MainTexelSize float2(1/1280.0f,1/720.0f)
+#define Lumin(x) dot(x,float3(0.299f, 0.587f, 0.114f))
+//Gausian distribution modified to place more weight on the cardnal edges then the center or corners.
+//gives a slightly more "chunky" feel then a normal gausian disribution would.
+const float4x4 Kern = float4x4(
+6.282671734911382,5.544438346015081,10.093304767045097,8.322356615252925,
+5.544438346015081,4.8929496669295665,9.645543582655932,8.082687324061427,
+10.093304767045097,9.645543582655932,2.311265766902815,1.2371314160794404,
+8.322356615252925,8.082687324061427,1.2371314160794404,0.6621887290364025
+);
+#define Kern_total 100.0
+
+//Kuwahara-like filter with custom Gausian kernal, 
+void main
+(
+	float4 ScreenPosition : TEXCOORD1,
+	uniform sampler2D _MainTex : TEXUNIT0,
+	out float4 oColor : COLOR
+)
+{
+	#define uv ScreenPosition.xy
+	
+	
+	//Instead of calculating the std deviation of luminocity in each direction,
+	//We just pick one of four directions based on nieghboring pixel brightness
+	
+	float3 col_sum = tex2D(_MainTex,uv).rgb;//center pixel
+	float c = Lumin(col_sum);
+	
+	float left = abs(Lumin(tex2D(_MainTex,uv+float2(-_KernelSize,0)*_MainTexelSize).rgb)-c);//Towards negX
+	float right = abs(Lumin(tex2D(_MainTex,uv+float2(_KernelSize,0)*_MainTexelSize).rgb)-c);//Towards posX
+	int xdir = -1;
+	if (right<left) xdir = 1;
+
+	float up = abs(Lumin(tex2D(_MainTex,uv+float2(0,-_KernelSize)*_MainTexelSize).rgb)-c);//Towards negY
+	float down = abs(Lumin(tex2D(_MainTex,uv+float2(0,_KernelSize)*_MainTexelSize).rgb)-c);//Towards posY
+	int ydir = -1;
+	if (down<up) ydir = 1;
+
+	//Once we pick a direction we apply the kernal to the neboring 16 pixels in that direction.
+
+	float2 incX = float2(xdir*_MainTexelSize.x,0.0);
+	float2 incY = float2(0.0,ydir*_MainTexelSize.y);
+	
+	
+	
+	//Manually Unrolled For Loop...
+	col_sum = col_sum * Kern._m00;
+	float2 offset = incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m01;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m02;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m03;
+
+	offset = incX;
+
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m10;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m11;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m12;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m13;
+
+	offset = incX*2;
+
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m20;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m21;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m22;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m23;
+
+	offset = incX*3;
+
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m30;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m31;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m32;
+	offset += incY;
+	col_sum += tex2D(_MainTex,uv+offset)*Kern._m33;
+
+
+	oColor.rgb = col_sum/Kern_total;
+}
