@@ -8,6 +8,30 @@ elif shaderFile[-4:] == ".vpo":
 else:
 	raise ValueError(f"Unrecgonized file extension {shaderFile[-4:]}")
 
+with open("build/ds_filter-shaderbnd-dcx/"+shaderFile,'rb') as f:
+	oldShader = bytearray(f.read())
+	pCgProgramHeader = struct.unpack('>I',oldShader[4:8])[0] #bytes 4-8 point to CgBinaryProgramHeader (usually at 0x20, but not allways...) 
+	CgHeaderData = list(struct.unpack('>IIIIIIII',oldShader[pCgProgramHeader:pCgProgramHeader+32]))
+
+"""
+although not needed for modding demon souls, for those curious,
+more info on the PS3 SDK can be found here: https://www.psdevwiki.com/ps3/SCEI_PS3_SDK
+
+If you plan to use the sce-cgc compiler that is included with the PS3-SDK instead of cgcomp from PSL1GHT 
+please uncomment the following code:
+"""
+#
+#with open(shaderFile,'rb') as f:
+#	newShader = f.read()
+#
+#with open("build/ds_filter-shaderbnd-dcx/"+shaderFile,'wb') as f:
+#	f.write(oldShader[:pCgProgramHeader])
+# f.write(newShader)
+#print(f"{shaderFile} injection complete")
+#quit()
+#
+
+
 """"
 The compiler used in the opensource PSL1GHT sdk uses a slightly different format and header
 then the official sce-cgc.exe produces (the shaderprogram compiler found in the offical PS3_SDK).
@@ -22,10 +46,6 @@ For the basic goal of creating a "post-render filter" effect like the kind seen 
 this isn't a big issue. We can just inject our code into the depth of feild or bloom shader files that Demon's Souls uses,
 effectivly replaceing those shader effects with our own custom ones.
 """
-
-
-
-
 
 """
 #First 24 bytes of cgcomp's rsx_vp/rsx_fp are the same  
@@ -51,15 +71,6 @@ with open(shaderFile,'rb') as f:
 	ucode_off = L1ghtCGpHeader[8]
 	f.seek(ucode_off,0)
 	ucode = f.read()
-
-
-
-
-
-with open("build/ds_filter-shaderbnd-dcx/"+shaderFile,'rb') as f:
-	oldShader = bytearray(f.read())
-	pCgProgramHeader = struct.unpack('>I',oldShader[4:8])[0] #bytes 4-8 point to CgBinaryProgramHeader (usually at 0x20, but not allways...) 
-	CgHeaderData = list(struct.unpack('>IIIIIIII',oldShader[pCgProgramHeader:pCgProgramHeader+32]))
 	
 """	
 **Info taken from Cg_Compiler-Users_Guide, included with the Official PS3 SDK**
